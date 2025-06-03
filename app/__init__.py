@@ -15,7 +15,7 @@ def create_app():
     CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
     with app.app_context():
-        # from .routes import bp
+        from .routes import bp
         from . import models
         print("Creating all tables...")
 
@@ -29,7 +29,7 @@ def create_app():
         # # 뷰 생성
         # create_views(db)
 
-        # # 블루프린트 등록
-        # app.register_blueprint(bp)
+        # 블루프린트 등록
+        app.register_blueprint(bp)
 
     return app

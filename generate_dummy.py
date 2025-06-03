@@ -2,8 +2,9 @@ import random
 from faker import Faker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import User, Post, Review, UserRunLog, PostTypeEnum
+from app.models import *
 from datetime import datetime, timedelta
+from sqlalchemy import text
 
 # app = create_app()
 # app.app_context().push()
@@ -16,6 +17,18 @@ Session = sessionmaker(bind=engine)
 
 # Faker 인스턴스 생성
 fake = Faker('ko_KR')
+
+sequences = [
+    '"User_user_id_seq"',
+    '"Crew_crew_id_seq"',
+    '"Post_post_id_seq"',
+    '"Review_review_id_seq"',
+    '"UserRunLog_user_log_id_seq"',
+    '"CrewRunLog_crew_log_id_seq"',
+    '"PostLike_post_like_id_seq"',
+    '"SportsEvent_event_id_seq"',
+    '"SportsEventLog_event_log_id_seq"'
+]
 
 seoul_dongs = {
     '종로구': ['청운동', '신교동', '궁정동', '효자동', '창성동', '통의동', '통인동', '누상동', '누하동', '옥인동'],
@@ -50,16 +63,36 @@ def main():
     session = Session()
 
     print("Deleting existing data...")
+
+    # 1. 리뷰 먼저 삭제 (Crew 참조)
+    session.query(Review).delete()
+
+    # 2. 크루 관련 로그 삭제
+    session.query(CrewRunLog).delete()
+    session.query(CrewMember).delete()  # 있으면
+    session.query(Crew).delete()
+
+    # 3. 사용자 관련 로그, 포스트, 좋아요 삭제
+    session.query(PostLike).delete()  # 있으면
     session.query(Post).delete()
     session.query(UserRunLog).delete()
+
+    # 4. 사용자 삭제
     session.query(User).delete()
     session.commit()
     print("Old data deleted.")
 
+    # 시퀀스 리셋
+    for seq in sequences:
+        session.execute(text(f'ALTER SEQUENCE {seq} RESTART WITH 1;'))
+    session.commit()
+    print("User ID sequence reset.")
+
     try:
-        # 1. Member 데이터 생성 (member_id를 1부터 200까지 수동으로 할당)
+
+        #user 더미데이터 생성
         users = []
-        for i in range(1, 51):  # member_id를 1부터 200까지 할당
+        for i in range(1, 51):
             gu = random.choice(list(seoul_dongs.keys()))    
             dong = random.choice(seoul_dongs[gu])
             region = f"{gu} {dong}"
@@ -72,6 +105,7 @@ def main():
         session.commit()
         print("User inserted")
 
+        #crew 더미데이터 생성
         crews = []
         for _ in range(10):
             gu = random.choice(list(seoul_dongs.keys()))
@@ -89,6 +123,7 @@ def main():
         session.commit()
         print("Crews inserted")
 
+        #CrewRunLog 더미데이터 생성
         for crew in crews:
             for _ in range(random.randint(1, 3)):
                 run_log = CrewRunLog(
@@ -106,6 +141,7 @@ def main():
         session.commit()
         print("CrewRunLogs inserted")    
 
+        #UserRunLog 더미데이터 생성
         for user in users:
             for _ in range(random.randint(1, 5)):
                 run_log = UserRunLog(
@@ -119,6 +155,7 @@ def main():
         session.commit()
         print("UserRunLogs inserted")
 
+        #Post 더미데이터 생성
         for user in users:
             for _ in range(random.randint(1, 3)):
                 post = Post(
@@ -132,6 +169,7 @@ def main():
         session.commit()
         print("Posts inserted")
 
+        #Review 더미데이터 생성
         for crew in crews:
             for _ in range(random.randint(2, 5)):
                 review = Review(
@@ -142,11 +180,26 @@ def main():
                 )
                 session.add(review)
         session.commit()
-        print("✅ Reviews inserted")
+        print("Reviews inserted")
+
+        #CrewMember 더미데이터 생성
+        for crew in crews:
+            # 각 크루에 랜덤한 멤버 5~10명 추가
+            members_in_crew = random.sample(users, random.randint(5, 10))
+            for user in members_in_crew:
+                crew_member = CrewMember(
+                    crew_id=crew.crew_id,
+                    user_id=user.user_id,
+                    join_date=fake.date_this_year()
+                )
+                session.add(crew_member)
+        session.commit()
+        print("CrewMembers inserted")
     
         # 커밋
         session.commit()
         print("Dummy data inserted successfully")
+
     except Exception as e:
         # 오류 발생 시 롤백
         session.rollback()

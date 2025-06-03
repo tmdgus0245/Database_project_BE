@@ -41,6 +41,9 @@ class CrewMember(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('User.user_id'), primary_key=True)
     join_date = db.Column(db.DateTime, server_default=db.func.now())
 
+    user = db.relationship('User', backref='crew_memberships')
+    crew = db.relationship('Crew', backref='memberships')
+
 # 게시글
 class Post(db.Model):
     __tablename__ = 'Post'
@@ -76,6 +79,20 @@ class CrewRunLog(db.Model):
     notes = db.Column(db.Text)
     created_by = db.Column(db.Integer, db.ForeignKey('User.user_id'))
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+#크루 공지사항
+class CrewNotice(db.Model):
+    __tablename__ = 'CrewNotice'
+    notice_id = db.Column(db.Integer, primary_key=True)
+    crew_id = db.Column(db.Integer, db.ForeignKey('Crew.crew_id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
+    created_by = db.Column(db.Integer, db.ForeignKey('User.user_id'), nullable=False)
+
+    crew = db.relationship('Crew', backref=db.backref('notices', lazy=True))
+    author = db.relationship('User', backref=db.backref('created_notices', lazy=True))
 
 # 체육 행사
 class SportsEvent(db.Model):
