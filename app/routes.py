@@ -18,8 +18,10 @@ def get_crews():
         # 결과를 JSON 형식으로 구성
         result = [
             {
+                "crew_leader": crew.created_by,
+                "crew_id": crew.crew_id,
                 "name": crew.name,
-                "region": crew.region,
+                "region": crew.region
             }
             for crew in crews
         ]
@@ -57,13 +59,151 @@ def get_crew_member(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# #크루 런닝기록
-# @bp.route('/api/crews/<int:crew_id>/crew_run_log', methods=['GET'])
-# def get_crew_run_log(crew_id):
+#크루 런닝기록 조회
+@bp.route('/api/crews/<int:crew_id>/crew_run_log', methods=['GET'])
+def get_crew_run_log(crew_id):
+    try:
+        # 해당 크루의 런닝 기록들 가져오기
+        run_logs = CrewRunLog.query.filter_by(crew_id=crew_id).all()
 
-# #크루 공지사항
-# @bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['GET'])
-# def get_crew_notice(crew_id):
+        result = [
+            {
+                "log_id": log.crew_log_id,
+                "title": log.title,
+                "date": log.date.strftime('%Y-%m-%d'),
+                "distance_km": log.distance_km,
+                "duration_min": log.duartion_min,
+                "avg_pace": log.avg_pace,
+                "photo_url": log.photo_url,
+                "notes": log.notes,
+                "created_by": log.created_by
+            }
+            for log in run_logs
+        ]
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#크루 런닝기록 등록
+@bp.route('/api/crews/<int:crew_id>/crew_run_log', methods=['POST'])
+def post_crew_run_log(crew_id):
+    data = request.get_json()
+    user_id = data.get('user_id')  # 요청한 사용자 ID
+
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        # 해당 크루 정보 가져오기
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "Crew not found"}), 404
+
+        # 권한 체크: 요청한 user_id가 이 크루의 created_by인지 확인
+        if crew.created_by != user_id:
+            return jsonify({"error": "Permission denied. Only crew leader can register run logs."}), 403
+
+        # 필요한 필드들 가져오기
+        title = data.get('title')
+        distance_km = data.get('distance_km')
+        duration_min = data.get('duration_min')
+        avg_pace = data.get('avg_pace')
+        photo_url = data.get('photo_url')
+        notes = data.get('notes')
+        date = data.get('date')
+
+        # 필수 값 검증
+        if not title or not distance_km or not duration_min or not avg_pace:
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # 새로운 런닝 기록 생성
+        new_log = CrewRunLog(
+            crew_id=crew_id,
+            title=title,
+            date=date,  # 오늘 날짜로 등록
+            distance_km=distance_km,
+            duartion_min=duration_min,
+            avg_pace=avg_pace,
+            photo_url=photo_url,
+            notes=notes,
+            created_by=user_id,
+            created_at=datetime.now()
+        )
+
+        db.session.add(new_log)
+        db.session.commit()
+
+        return jsonify({"message": "Crew run log created successfully", "log_id": new_log.crew_log_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+#크루 공지사항 조회
+@bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['GET'])
+def get_crew_notice(crew_id):
+    try:
+        # 해당 크루의 공지사항들 가져오기
+        notices = CrewNotice.query.filter_by(crew_id=crew_id).order_by(CrewNotice.created_at.desc()).all()
+
+        result = [
+            {
+                "notice_id": notice.notice_id,
+                "title": notice.title,
+                "content": notice.content,
+                "created_at": notice.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for notice in notices
+        ]
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#크루 공지사항 게시
+@bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['POST'])
+def post_crew_notice(crew_id):
+    data = request.get_json()
+    user_id = data.get('user_id')  # 작성자 ID
+    title = data.get('title')
+    content = data.get('content')
+
+    # 필수 값 검증
+    if not user_id or not title or not content:
+        return jsonify({"error": "user_id, title, content are required"}), 400
+
+    try:
+        # 해당 크루 가져오기
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "Crew not found"}), 404
+
+        # 권한 체크: 작성자가 크루장인지 확인
+        if crew.created_by != user_id:
+            return jsonify({"error": "Permission denied. Only the crew leader can post notices."}), 403
+
+        # 공지사항 생성
+        new_notice = CrewNotice(
+            crew_id=crew_id,
+            title=title,
+            content=content,
+            created_at=datetime.now()
+        )
+
+        db.session.add(new_notice)
+        db.session.commit()
+
+        return jsonify({"message": "Crew notice posted successfully", "notice_id": new_notice.notice_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 

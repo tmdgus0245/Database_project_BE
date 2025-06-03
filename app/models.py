@@ -89,10 +89,8 @@ class CrewNotice(db.Model):
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
-    created_by = db.Column(db.Integer, db.ForeignKey('User.user_id'), nullable=False)
 
     crew = db.relationship('Crew', backref=db.backref('notices', lazy=True))
-    author = db.relationship('User', backref=db.backref('created_notices', lazy=True))
 
 # 체육 행사
 class SportsEvent(db.Model):
