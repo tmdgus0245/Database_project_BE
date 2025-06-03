@@ -35,7 +35,41 @@ def get_crews():
 #크루별 페이지
 @bp.route('/api/crews/<int:crew_id>', methods=['GET'])
 def get_crew_detail(crew_id):
-    return jsonify({"message": f"크루 {crew_id} 상세 정보"}), 200
+    try:
+        # 크루 가져오기
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "Crew not found"}), 404
+
+        leader = User.query.get(crew.created_by)
+        leader_nickname = leader.nickname if leader else "Unknown"
+
+        # 리뷰들 가져오기
+        reviews = Review.query.filter_by(crew_id=crew_id).all()
+        review_list = [
+            {
+                "review_id": review.review_id,
+                "user_id": review.user_id,
+                "rating": review.rating,
+                "comment": review.comment,
+                "created_at": review.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for review in reviews
+        ]
+
+        result = {
+            "crew_id": crew.crew_id,
+            "leader": leader_nickname,
+            "name": crew.name,
+            "region": crew.region,
+            "description": crew.description,
+            "reviews": review_list
+        }
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 #크루원 조회
 @bp.route('/api/crews/<int:crew_id>/crew_member', methods=['GET'])
