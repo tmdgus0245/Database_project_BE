@@ -29,7 +29,6 @@ def create_app():
         # # 뷰 생성
         # create_views(db)
 
-        # # 블루프린트 등록
-        # app.register_blueprint(bp)
+        app.register_blueprint(bp)
 
     return app
