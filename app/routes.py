@@ -239,22 +239,103 @@ def post_crew_notice(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
-
+#크루 생성
 @bp.route('/api/crews_make', methods=['POST'])
 def create_crew():
     data = request.get_json()
-    return jsonify({"message": "크루 생성"}), 201
 
+    name = data.get('name')
+    description = data.get('description')
+    region = data.get('region')
+    created_by = data.get('created_by')
+
+    # 필수값 체크
+    if not name or not created_by:
+        return jsonify({"error": "name and created_by are required"}), 400
+
+    try:
+        new_crew = Crew(
+            name=name,
+            description=description,
+            region=region,
+            created_by=created_by
+        )
+        db.session.add(new_crew)
+        db.session.commit()
+
+        crew_leader = CrewMember(
+            crew_id=new_crew.crew_id,
+            user_id=created_by,
+            join_date=datetime.now()
+        )
+        db.session.add(crew_leader)
+        db.session.commit()
+
+        return jsonify({
+            "message": "크루 생성 완료",
+            "crew_id": new_crew.crew_id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#크루 가입
 @bp.route('/api/crews/<int:crew_id>/join', methods=['POST'])
 def join_crew(crew_id):
     data = request.get_json()
-    return jsonify({"message": f"크루 {crew_id} 가입"}), 200
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        # 크루 존재 여부 확인
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "Crew not found"}), 404
+
+        # 이미 가입되어 있는지 확인
+        existing_member = CrewMember.query.filter_by(crew_id=crew_id, user_id=user_id).first()
+        if existing_member:
+            return jsonify({"error": "User already joined this crew"}), 400
+
+        # 가입 처리
+        new_member = CrewMember(
+            crew_id=crew_id,
+            user_id=user_id,
+            join_date=datetime.now()
+        )
+        db.session.add(new_member)
+        db.session.commit()
+
+        return jsonify({"message": f"Crew {crew_id} joined successfully", "user_id": user_id}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @bp.route('/api/crews/<int:crew_id>/leave', methods=['POST'])
 def leave_crew(crew_id):
     data = request.get_json()
-    return jsonify({"message": f"크루 {crew_id} 탈퇴"}), 200
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        crew_member = CrewMember.query.filter_by(crew_id=crew_id, user_id=user_id).first()
+        if not crew_member:
+            return jsonify({"error": "User is not a member of this crew"}), 404
+
+        db.session.delete(crew_member)
+        db.session.commit()
+
+        return jsonify({"message": f"User {user_id} has left crew {crew_id}"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 ######################################
 # 2️⃣ 러닝 코스 추천

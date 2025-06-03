@@ -14,7 +14,6 @@ DATABASE_URI = "postgresql+psycopg2://postgres:millionwhitesu04@localhost:5432/R
 engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
-
 # Faker 인스턴스 생성
 fake = Faker('ko_KR')
 
@@ -61,7 +60,7 @@ seoul_dongs = {
 def main():
     # SQLAlchemy 세션 생성
     session = Session()
-
+    
     print("Deleting existing data...")
 
     # 1. 리뷰 먼저 삭제 (Crew 참조)
@@ -69,11 +68,12 @@ def main():
 
     # 2. 크루 관련 로그 삭제
     session.query(CrewRunLog).delete()
-    session.query(CrewMember).delete()  # 있으면
+    session.query(CrewMember).delete()
+    session.query(CrewNotice).delete()  # 추가: 크루 공지 삭제
     session.query(Crew).delete()
 
     # 3. 사용자 관련 로그, 포스트, 좋아요 삭제
-    session.query(PostLike).delete()  # 있으면
+    session.query(PostLike).delete()
     session.query(Post).delete()
     session.query(UserRunLog).delete()
 
@@ -81,6 +81,7 @@ def main():
     session.query(User).delete()
     session.commit()
     print("Old data deleted.")
+
 
     # 시퀀스 리셋
     for seq in sequences:
@@ -171,21 +172,17 @@ def main():
 
         #Review 더미데이터 생성
         for crew in crews:
-            for _ in range(random.randint(2, 5)):
-                review = Review(
-                    user_id=random.choice(users).user_id,
-                    crew_id=crew.crew_id,
-                    rating=random.randint(1, 5),
-                    comment=fake.text()
-                )
-                session.add(review)
-        session.commit()
-        print("Reviews inserted")
+            # 크루장 추가
+            crew_leader_member = CrewMember(
+                crew_id=crew.crew_id,
+                user_id=crew.created_by,
+                join_date=fake.date_this_year()
+            )
+            session.add(crew_leader_member)
 
-        #CrewMember 더미데이터 생성
-        for crew in crews:
-            # 각 크루에 랜덤한 멤버 5~10명 추가
-            members_in_crew = random.sample(users, random.randint(5, 10))
+            # 나머지 멤버 랜덤 추가 (크루장 제외하고)
+            possible_members = [u for u in users if u.user_id != crew.created_by]
+            members_in_crew = random.sample(possible_members, random.randint(5, 10))
             for user in members_in_crew:
                 crew_member = CrewMember(
                     crew_id=crew.crew_id,
@@ -193,6 +190,7 @@ def main():
                     join_date=fake.date_this_year()
                 )
                 session.add(crew_member)
+
         session.commit()
         print("CrewMembers inserted")
     
