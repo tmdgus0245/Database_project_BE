@@ -34,6 +34,8 @@ class Review(db.Model):
     comment = db.Column(db.Text)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
+    user = db.relationship('User', backref=db.backref('reviews', lazy=True))
+
 # 크루 멤버
 class CrewMember(db.Model):
     __tablename__ = 'CrewMember'
@@ -53,6 +55,7 @@ class Post(db.Model):
     title = db.Column(db.String(100))
     content = db.Column(db.Text)
     image_url = db.Column(db.Text)
+    like_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
 # 사용자 러닝 기록
@@ -121,3 +124,5 @@ class PostLike(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('User.user_id'))
     post_id = db.Column(db.Integer, db.ForeignKey('Post.post_id'))
     liked_at = db.Column(db.DateTime, server_default=db.func.now())
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)

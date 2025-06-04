@@ -5,7 +5,7 @@ from .models import *
 bp = Blueprint('routes', __name__)
 
 ######################################
-# 1️⃣ 크루 탐색 및 가입
+# 크루 관련 엔드포인트
 ######################################
 
 #크루 탐색 : 크루 목록 조회
@@ -315,6 +315,7 @@ def join_crew(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#크루 탈퇴
 @bp.route('/api/crews/<int:crew_id>/leave', methods=['POST'])
 def leave_crew(crew_id):
     data = request.get_json()
@@ -337,55 +338,304 @@ def leave_crew(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#크루 리뷰 등록
+@bp.route('/api/crews/<int:crew_id>/reviews', methods=['POST'])
+def post_crew_review(crew_id):
+    data = request.get_json()
+    user_id = data.get('user_id')
+    rating = data.get('rating')
+    comment = data.get('comment')
+
+    if not user_id or not rating:
+        return jsonify({"error": "user_id와 rating은 필수입니다."}), 400
+
+    try:
+        review = Review(
+            user_id=user_id,
+            crew_id=crew_id,
+            rating=rating,
+            comment=comment
+        )
+        db.session.add(review)
+        db.session.commit()
+
+        return jsonify({"message": f"크루 {crew_id}에 리뷰 등록 완료", "review_id": review.review_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#크루 리뷰 삭제
+@bp.route('/api/reviews/<int:review_id>', methods=['DELETE'])
+def delete_crew_review(review_id):
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id가 필요합니다."}), 400
+
+    try:
+        review = Review.query.get(review_id)
+        if not review:
+            return jsonify({"error": "리뷰를 찾을 수 없습니다."}), 404
+
+        # 작성자 본인인지 확인
+        if review.user_id != user_id:
+            return jsonify({"error": "리뷰 작성자만 삭제할 수 있습니다."}), 403
+
+        db.session.delete(review)
+        db.session.commit()
+
+        return jsonify({"message": f"리뷰 {review_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#크루 리뷰 조회
+@bp.route('/api/crews/<int:crew_id>/reviews', methods=['GET'])
+def get_crew_reviews(crew_id):
+    try:
+        # 해당 크루의 모든 리뷰 가져오기
+        reviews = Review.query.filter_by(crew_id=crew_id).all()
+
+        result = [
+            {
+                "review_id": review.review_id,
+                "user_id": review.user_id,
+                "nickname": review.user.nickname,  # User 모델에 nickname 관계가 있다고 가정
+                "rating": review.rating,
+                "comment": review.comment,
+                "created_at": review.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for review in reviews
+        ]
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 ######################################
-# 2️⃣ 러닝 코스 추천
+# 게시글 관련 엔드포인트
 ######################################
 
-@bp.route('/api/courses', methods=['GET'])
+#러닝 코스 추천 게시글 조회
+@bp.route('/api/posts/course', methods=['GET'])
 def get_courses():
-    return jsonify({"message": "러닝 코스 추천 리스트"}), 200
+    try:
+        # PostTypeEnum.코스추천인 글들만 가져오기
+        course_posts = Post.query.filter_by(type=PostTypeEnum.코스추천).all()
 
-@bp.route('/api/courses', methods=['POST'])
+        result = []
+        for post in course_posts:
+            result.append({
+                "post_id": post.post_id,
+                "title": post.title,
+                "content": post.content,
+                "image_url": post.image_url,
+                "author_id": post.user_id,
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+#러닝 코스 추천 게시글 게시
+@bp.route('/api/posts/course', methods=['POST'])
 def post_course():
     data = request.get_json()
-    return jsonify({"message": "러닝 코스 추천 작성"}), 201
 
-######################################
-# 3️⃣ 이만큼 달렸어요 (개인 기록 자랑)
-######################################
+    user_id = data.get('user_id')
+    title = data.get('title')
+    content = data.get('content')
+    image_url = data.get('image_url')
 
-@bp.route('/api/brag-posts', methods=['GET'])
+    # 필수값 체크
+    if not user_id or not title or not content:
+        return jsonify({"error": "user_id, title, content는 필수입니다."}), 400
+
+    try:
+        new_post = Post(
+            user_id=user_id,
+            type=PostTypeEnum.코스추천,
+            title=title,
+            content=content,
+            image_url=image_url
+        )
+
+        db.session.add(new_post)
+        db.session.commit()
+
+        return jsonify({
+            "message": "러닝 코스 추천 작성 완료",
+            "post_id": new_post.post_id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#러닝 코스 추천 게시글 삭제
+@bp.route('/api/posts/course/<int:post_id>', methods=['DELETE'])
+def delete_course(post_id):
+    try:
+        post = Post.query.get(post_id)
+        if not post:
+            return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
+
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"message": f"러닝 코스 추천 {post_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#자랑 게시글 조회
+@bp.route('/api/posts/brag', methods=['GET'])
 def get_brag_posts():
-    return jsonify({"message": "개인 기록 자랑 리스트"}), 200
+    try:
+        # PostTypeEnum.코스추천인 글들만 가져오기
+        course_posts = Post.query.filter_by(type=PostTypeEnum.인증글).all()
 
-@bp.route('/api/brag-posts', methods=['POST'])
+        result = []
+        for post in course_posts:
+            result.append({
+                "post_id": post.post_id,
+                "title": post.title,
+                "content": post.content,
+                "image_url": post.image_url,
+                "author_id": post.user_id,
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#자랑 게시글 게시
+@bp.route('/api/posts/brag', methods=['POST'])
 def post_brag():
     data = request.get_json()
-    return jsonify({"message": "개인 기록 자랑 작성"}), 201
 
-@bp.route('/api/brag-posts/<int:post_id>', methods=['DELETE'])
+    user_id = data.get('user_id')
+    title = data.get('title')
+    content = data.get('content')
+    image_url = data.get('image_url')
+
+    # 필수값 체크
+    if not user_id or not title or not content:
+        return jsonify({"error": "user_id, title, content는 필수입니다."}), 400
+
+    try:
+        new_post = Post(
+            user_id=user_id,
+            type=PostTypeEnum.인증글,
+            title=title,
+            content=content,
+            image_url=image_url
+        )
+
+        db.session.add(new_post)
+        db.session.commit()
+
+        return jsonify({
+            "message": "이만큼 달렸어요 작성완료",
+            "post_id": new_post.post_id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500    
+
+#자랑 게시글 삭제
+@bp.route('/api/posts/brag/<int:post_id>', methods=['DELETE'])
 def delete_brag(post_id):
-    return jsonify({"message": f"개인 기록 자랑 {post_id} 삭제"}), 200
+    try:
+        post = Post.query.get(post_id)
+        if not post:
+            return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
 
-######################################
-# 4️⃣ 크루 관리
-######################################
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"message": f"이만큼 달렸어요 {post_id} 삭제 완료"}), 200
 
-@bp.route('/api/crews/<int:crew_id>/runs', methods=['GET'])
-def get_crew_runs(crew_id):
-    return jsonify({"message": f"크루 {crew_id} 러닝 기록 조회"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
-@bp.route('/api/crews/<int:crew_id>/schedule', methods=['POST'])
-def post_crew_schedule(crew_id):
+#게시글 좋아요
+@bp.route('/api/posts/<int:post_id>/like', methods=['POST'])
+def post_like(post_id):
     data = request.get_json()
-    return jsonify({"message": f"크루 {crew_id} 일정 등록"}), 201
+    user_id = data.get('user_id')
 
-@bp.route('/api/crews/<int:crew_id>/schedule', methods=['GET'])
-def get_crew_schedule(crew_id):
-    return jsonify({"message": f"크루 {crew_id} 일정 조회"}), 200
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    # 중복 좋아요 방지
+    existing_like = PostLike.query.filter_by(user_id=user_id, post_id=post_id).first()
+    if existing_like:
+        return jsonify({"message": "Already liked"}), 200
+
+    try:
+        new_like = PostLike(user_id=user_id, post_id=post_id)
+        db.session.add(new_like)
+        db.session.commit()
+
+        return jsonify({"message": "Post liked"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/api/posts/<int:post_id>/like', methods=['DELETE'])
+def post_unlike(post_id):
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        like = PostLike.query.filter_by(user_id=user_id, post_id=post_id).first()
+        if not like:
+            return jsonify({"message": "Like not found"}), 404
+
+        db.session.delete(like)
+        db.session.commit()
+
+        return jsonify({"message": "Post like removed"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#좋아요 수 조회
+@bp.route('/api/posts/<int:post_id>/like', methods=['GET'])
+def get_post_like(post_id):
+    try:
+        post = Post.query.get(post_id)
+        if not post:
+            return jsonify({"error": "Post not found"}), 404
+
+        return jsonify({
+            "post_id": post_id,
+            "like_count": post.like_count
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 ######################################
-# 5️⃣ 체육 행사 정보
+# 체육 행사 관련 엔드포인트
 ######################################
 
 @bp.route('/api/events', methods=['GET'])
@@ -406,18 +656,21 @@ def get_event_participants(event_id):
     return jsonify({"message": f"체육 행사 {event_id} 참가자 목록"}), 200
 
 ######################################
-# 6️⃣ 러닝 기록 관리
+# 유저 관련 엔드포인트
 ######################################
 
+#개인 러닝 기록 조회
 @bp.route('/api/users/<int:user_id>/runs', methods=['GET'])
 def get_user_runs(user_id):
     return jsonify({"message": f"유저 {user_id} 러닝 기록 조회"}), 200
 
+#개인 러닝 기록 추가
 @bp.route('/api/users/<int:user_id>/runs', methods=['POST'])
 def post_user_run(user_id):
     data = request.get_json()
     return jsonify({"message": f"유저 {user_id} 러닝 기록 추가"}), 201
 
+#개인 러닝 기록 삭제
 @bp.route('/api/users/<int:user_id>/runs/<int:run_id>', methods=['DELETE'])
 def delete_user_run(user_id, run_id):
     return jsonify({"message": f"유저 {user_id} 러닝 기록 {run_id} 삭제"}), 200

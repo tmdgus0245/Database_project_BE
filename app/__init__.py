@@ -23,8 +23,9 @@ def create_app():
         db.create_all()
         print("Table created!")
 
-        # # 트리거 등록
-        # register_triggers(db)
+        # 트리거 등록
+        register_triggers(db)
+        print("Trigger registered!")
 
         # # 뷰 생성
         # create_views(db)
