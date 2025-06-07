@@ -187,12 +187,25 @@ def post_crew_run_log(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# 크루 런닝 기록 삭제
+# 크루 런닝 기록 삭제 
 @bp.route('/api/crews/<int:crew_id>/crew_run_log/<int:crew_log_id>', methods=['DELETE'])
 def delete_crew_run_log(crew_id, crew_log_id):
-    try:
-        run_log = CrewRunLog.query.filter_by(crew_id=crew_id, crew_log_id=crew_log_id).first()
+    data = request.get_json()
+    user_id = data.get("user_id")
 
+    if not user_id:
+        return jsonify({"error": "user_id는 필수입니다."}), 400
+
+    try:
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "해당 크루가 존재하지 않습니다."}), 404
+
+        # 권한 확인
+        if crew.created_by != user_id:
+            return jsonify({"error": "크루장만 삭제할 수 있습니다."}), 403
+
+        run_log = CrewRunLog.query.filter_by(crew_id=crew_id, crew_log_id=crew_log_id).first()
         if not run_log:
             return jsonify({"error": "해당 크루 런닝 기록이 존재하지 않습니다."}), 404
 
@@ -203,6 +216,7 @@ def delete_crew_run_log(crew_id, crew_log_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 
 
@@ -954,7 +968,7 @@ def delete_user_event_run_log(user_id, event_log_id):
 
         db.session.delete(log)
         db.session.commit()
-        return jsonify({"message": f"러닝 기록 {log_id} 삭제 완료"}), 200
+        return jsonify({"message": f"러닝 기록 {event_log_id} 삭제 완료"}), 200
 
     except Exception as e:
         db.session.rollback()
