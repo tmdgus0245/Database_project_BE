@@ -467,7 +467,8 @@ def get_courses():
                 "post_id": post.post_id,
                 "title": post.title,
                 "author_id": post.user_id,
-                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                "like_count": post.like_count
             })
 
         return jsonify(result), 200
@@ -518,6 +519,9 @@ def delete_course(post_id):
         if not post:
             return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
 
+        if post.user_id != user_id:
+            return jsonify({"error": "작성자만 삭제할 수 있습니다."}), 403
+
         db.session.delete(post)
         db.session.commit()
         return jsonify({"message": f"러닝 코스 추천 {post_id} 삭제 완료"}), 200
@@ -539,7 +543,8 @@ def get_brag_posts():
                 "post_id": post.post_id,
                 "title": post.title,
                 "author_id": post.user_id,
-                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                "like_count": post.like_count
             })
 
         return jsonify(result), 200
@@ -589,6 +594,9 @@ def delete_brag(post_id):
         post = Post.query.get(post_id)
         if not post:
             return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
+
+        if post.user_id != user_id:
+            return jsonify({"error": "작성자만 삭제할 수 있습니다."}), 403
 
         db.session.delete(post)
         db.session.commit()
@@ -776,12 +784,30 @@ def get_user(user_id):
             for post in liked_posts
         ]
 
+        #유저가 가입한 크루
+        joined_crews = (
+            db.session.query(Crew)
+            .join(CrewMember, Crew.crew_id == CrewMember.crew_id)
+            .filter(CrewMember.user_id == user_id)
+            .order_by(Crew.name.asc())
+            .all()
+        )
+        crew_list = [
+            {
+                "crew_id": crew.crew_id,
+                "name": crew.name,
+                "region": crew.region
+            }
+            for crew in joined_crews
+        ]
+
         return jsonify({
             "user_id": user.user_id,
             "nickname": user.nickname,
             "region": user.region,
             "posts": post_list,
-            "liked_posts": liked_list
+            "liked_posts": liked_list,
+            "joined_crew": crew_list
         }), 200
 
     except Exception as e:
