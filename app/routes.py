@@ -632,6 +632,8 @@ def delete_course(post_id):
         if post.user_id != user_id:
             return jsonify({"error": "게시글 작성자만 삭제할 수 있습니다."}), 403
 
+        PostLike.query.filter_by(post_id=post_id).delete()
+
         db.session.delete(post)
         db.session.commit()
 
