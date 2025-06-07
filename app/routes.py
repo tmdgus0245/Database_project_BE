@@ -69,7 +69,8 @@ def get_crew_detail(crew_id):
             "name": crew.name,
             "region": crew.region,
             "description": crew.description,
-            "reviews": review_list
+            "reviews": review_list,
+            "created_by": crew.created_by
         }
 
         return jsonify(result), 200
@@ -385,7 +386,7 @@ def delete_crew(crew_id):
 
         # 연관된 CrewRunLog 삭제
         CrewRunLog.query.filter_by(crew_id=crew_id).delete()
-        
+
         # 관련 멤버, 기록 등 연쇄 삭제 필요시 여기서 처리
         db.session.delete(crew)
         db.session.commit()
