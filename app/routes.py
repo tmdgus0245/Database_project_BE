@@ -109,7 +109,7 @@ def get_crew_run_log(crew_id):
 
         result = [
             {
-                "log_id": log.crew_log_id,
+                "crew_log_id": log.crew_log_id,
                 "title": log.title,
                 "date": log.date.strftime('%Y-%m-%d'),
                 "distance_km": log.distance_km,
@@ -168,7 +168,7 @@ def post_crew_run_log(crew_id):
         new_log = CrewRunLog(
             crew_id=crew_id,
             title=title,
-            date=date,  # 오늘 날짜로 등록
+            date=date,
             distance_km=distance_km,
             duration_min=duration_min,
             avg_pace=avg_pace,
@@ -216,9 +216,6 @@ def delete_crew_run_log(crew_id, crew_log_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
-
 
 #크루 공지사항 조회
 @bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['GET'])
