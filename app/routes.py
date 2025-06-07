@@ -436,21 +436,19 @@ def get_post_detail(post_id):
     try:
         post = Post.query.filter_by(post_id=post_id).first()
         if not post:
-            return jsonify({"error:" "Post not found"}), 404
+            return jsonify({"error": "Post not found"}), 404
 
-        result = []
-        for post_detail in post:
-            result.append({
-                "post_id": post_detail.post_id,
-                "title": post_detail.title,
-                "content": post_detail.content,
-                "image_url": post_detail.image_url,
-                "created_at": post_detail.created_at,
-                "like_count": post_detail.like_count
-            })
+        result = {
+            "post_id": post.post_id,
+            "title": post.title,
+            "content": post.content,
+            "image_url": post.image_url,
+            "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            "like_count": post.like_count
+        }
 
         return jsonify(result), 200
-    
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
@@ -786,13 +784,6 @@ def get_events():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
-
-#체육 행사 상세 조회
-@bp.route('/api/events/<int:event_id>', methods=['GET'])
-def get_event_detail(event_id):
-    return jsonify({"message": f"체육 행사 {event_id} 상세 정보"}), 200
-
 ######################################
 # 유저 관련 엔드포인트
 ######################################
@@ -893,13 +884,81 @@ def update_user(user_id):
         return jsonify({"error": str(e)}), 500
 
 
-# #유저 행사 러닝 기록 조회
-# @bp.route('/api/users/<int:user_id>/events_run_log', methods=['GET'])
-# def get_user_event_run_log(user_id):
+#유저 행사 러닝 기록 조회
+@bp.route('/api/users/<int:user_id>/events_run_log', methods=['GET'])
+def get_user_event_run_log(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "유저를 찾을 수 없습니다."}), 404
 
-# #유저 행사 러닝 기록 등록
-# @bp.route('/api/users/<int:user_id>/events_run_log', methods=['POST'])
-# def post_user_event_run_log(user_id):
+        logs = SportsEventLog.query.filter_by(user_id=user_id).join(SportsEvent).all()
+
+        log_list = []
+        for log in logs:
+            log_list.append({
+                "event_title": log.event.title,
+                "event_date": log.event.date.strftime('%Y-%m-%d') if log.event.date else None,
+                "distance_km": log.distance_km,
+                "duration_min": log.duration_min,
+                "logged_at": log.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify({"user_id": user_id, "event_logs": log_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#유저 행사 러닝 기록 등록
+@bp.route('/api/users/<int:user_id>/events_run_log', methods=['POST'])
+def post_user_event_run_log(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "유저를 찾을 수 없습니다."}), 404
+
+        data = request.get_json()
+        event_id = data.get("event_id")
+        distance_km = data.get("distance_km")
+        duration_min = data.get("duration_min")
+        joined_at_str = data.get("joined_at")
+
+        if not all([event_id, distance_km, duration_min, joined_at_str]):
+            return jsonify({"error": "모든 필드(event_id, distance_km, duration_min, joined_at)는 필수입니다."}), 400
+
+        event = SportsEvent.query.get(event_id)
+        if not event:
+            return jsonify({"error": "해당 ID의 스포츠 행사를 찾을 수 없습니다."}), 404
+
+        try:
+            joined_at = datetime.strptime(joined_at_str, "%Y-%m-%d").date()
+        except:
+            return jsonify({"error": "joined_at은 YYYY-MM-DD 형식이어야 합니다."}), 400
+
+        new_log = SportsEventLog(
+            user_id=user_id,
+            event_id=event_id,
+            distance_km=distance_km,
+            duration_min=duration_min,
+            joined_at=joined_at
+        )
+
+        db.session.add(new_log)
+        db.session.commit()
+
+        return jsonify({
+            "message": "러닝 기록이 등록되었습니다.",
+            "log": {
+                "event_title": event.title,
+                "distance_km": distance_km,
+                "duration_min": duration_min,
+                "joined_at": joined_at.strftime('%Y-%m-%d')
+            }
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 #유저 러닝 기록 조회
 @bp.route('/api/users/<int:user_id>/user_run_log', methods=['GET'])
