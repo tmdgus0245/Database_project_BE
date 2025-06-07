@@ -58,6 +58,9 @@ class Post(db.Model):
     like_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
+    user = db.relationship('User', backref='posts')
+
+
 # 사용자 러닝 기록
 class UserRunLog(db.Model):
     __tablename__ = 'UserRunLog'
