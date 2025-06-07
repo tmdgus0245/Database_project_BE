@@ -884,7 +884,22 @@ def update_user(user_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#유저 행사 러닝 기록 삭제
+@bp.route('/api/users/<int:user_id>/events_run_log/<int:event_log_id>', methods=['DELETE'])
+def delete_user_event_run_log(user_id, event_log_id):
+    try:
+        log = SportsEventLog.query.filter_by(log_id=log_id, user_id=user_id).first()
+        if not log:
+            return jsonify({"error": "해당 러닝 기록이 존재하지 않습니다."}), 404
 
+        db.session.delete(log)
+        db.session.commit()
+        return jsonify({"message": f"러닝 기록 {log_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+        
 #유저 행사 러닝 기록 조회
 @bp.route('/api/users/<int:user_id>/events_run_log', methods=['GET'])
 def get_user_event_run_log(user_id):
