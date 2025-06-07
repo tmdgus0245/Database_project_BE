@@ -117,8 +117,10 @@ class SportsEventLog(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey('SportsEvent.event_id'))
     user_id = db.Column(db.Integer, db.ForeignKey('User.user_id'))
     joined_at = db.Column(db.DateTime, server_default=db.func.now())
-    feedback = db.Column(db.Text)
-    ranking = db.Column(db.Integer)
+    distance_km = db.Column(db.Float)
+    duration_min = db.Column(db.Integer)
+
+    event = db.relationship('SportsEvent', backref='event_logs')
 
 # 게시글 좋아요
 class PostLike(db.Model):

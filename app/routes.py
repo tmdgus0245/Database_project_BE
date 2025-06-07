@@ -381,10 +381,9 @@ def delete_crew(crew_id):
         if crew.created_by != user_id:
             return jsonify({"error": "크루장만 삭제할 수 있습니다."}), 403
 
-        # 연관된 CrewMember 삭제
+        # 연관된 데이터 삭제
+        CrewNotice.query.filter_by(crew_id=crew_id).delete()
         CrewMember.query.filter_by(crew_id=crew_id).delete()
-
-        # 연관된 CrewRunLog 삭제
         CrewRunLog.query.filter_by(crew_id=crew_id).delete()
 
         # 관련 멤버, 기록 등 연쇄 삭제 필요시 여기서 처리
@@ -979,7 +978,6 @@ def get_user_event_run_log(user_id):
                 "event_date": log.event.date.strftime('%Y-%m-%d') if log.event.date else None,
                 "distance_km": log.distance_km,
                 "duration_min": log.duration_min,
-                "logged_at": log.created_at.strftime('%Y-%m-%d %H:%M:%S')
             })
 
         return jsonify({"user_id": user_id, "event_logs": log_list}), 200
@@ -1112,4 +1110,3 @@ def delete_user_run(user_id, user_log_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
