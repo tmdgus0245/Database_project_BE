@@ -520,19 +520,27 @@ def post_course():
         return jsonify({"error": str(e)}), 500
 
 #러닝 코스 추천 게시글 삭제
-@bp.route('/api/posts/course/<int:post_id>', methods=['DELETE'])
+@bp.route('/api/posts/<int:post_id>', methods=['DELETE'])
 def delete_course(post_id):
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id가 필요합니다."}), 400
+
     try:
         post = Post.query.get(post_id)
         if not post:
-            return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
+            return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
+        # 작성자 본인인지 확인
         if post.user_id != user_id:
-            return jsonify({"error": "작성자만 삭제할 수 있습니다."}), 403
+            return jsonify({"error": "게시글 작성자만 삭제할 수 있습니다."}), 403
 
         db.session.delete(post)
         db.session.commit()
-        return jsonify({"message": f"러닝 코스 추천 {post_id} 삭제 완료"}), 200
+
+        return jsonify({"message": f"추천 코스 {post_id} 삭제 완료"}), 200
 
     except Exception as e:
         db.session.rollback()
@@ -599,16 +607,24 @@ def post_brag():
 #자랑 게시글 삭제
 @bp.route('/api/posts/brag/<int:post_id>', methods=['DELETE'])
 def delete_brag(post_id):
+    data = request.get_json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        return jsonify({"error": "user_id가 필요합니다."}), 400
+
     try:
         post = Post.query.get(post_id)
         if not post:
-            return jsonify({"error": "해당 게시글이 존재하지 않습니다."}), 404
+            return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
+        # 작성자 본인인지 확인
         if post.user_id != user_id:
-            return jsonify({"error": "작성자만 삭제할 수 있습니다."}), 403
+            return jsonify({"error": "게시글 작성자만 삭제할 수 있습니다."}), 403
 
         db.session.delete(post)
         db.session.commit()
+
         return jsonify({"message": f"이만큼 달렸어요 {post_id} 삭제 완료"}), 200
 
     except Exception as e:
