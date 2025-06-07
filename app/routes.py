@@ -438,13 +438,22 @@ def get_post_detail(post_id):
         if not post:
             return jsonify({"error": "Post not found"}), 404
 
+        # 쿼리 파라미터로 유저 ID 받기
+        user_id = request.args.get('user_id', type=int)
+
+        liked = False
+        if user_id:
+            existing_like = PostLike.query.filter_by(user_id=user_id, post_id=post_id).first()
+            liked = existing_like is not None
+
         result = {
             "post_id": post.post_id,
             "title": post.title,
             "content": post.content,
             "image_url": post.image_url,
             "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            "like_count": post.like_count
+            "like_count": post.like_count,
+            "liked": liked
         }
 
         return jsonify(result), 200
@@ -631,6 +640,7 @@ def post_like(post_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#게시글 좋아요 취소
 @bp.route('/api/posts/<int:post_id>/like', methods=['DELETE'])
 def post_unlike(post_id):
     data = request.get_json()
