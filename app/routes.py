@@ -672,116 +672,109 @@ def get_post_like(post_id):
 # 체육 행사 관련 엔드포인트
 ######################################
 
-#체옥 행사 목록 조회
+#체육 행사 정보 조회
 @bp.route('/api/events', methods=['GET'])
 def get_events():
     try:
-        saved_events = []
+        # 페이지네이션 쿼리 파라미터
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
 
-        # 1. 공공데이터 API 요청
-        odcloud_params = {
-            "page": 1,
-            "perPage": 50,
-            "serviceKey": SECRET_KEY
-        }
+        # 초기 데이터 없을 시 수집 (최초 1회만 실행되게 개선 여지 있음)
+        if SportsEvent.query.count() == 0:
+            saved_events = []
 
-        odcloud_response = requests.get(URL, params=odcloud_params)
-        odcloud_response.raise_for_status()
-        odcloud_rows = odcloud_response.json().get("data", [])
-
-        # 기존 SportsEvent 데이터 삭제
-        SportsEvent.query.delete()
-        db.session.commit()
-
-        # 2. 공공데이터 파싱 및 저장
-        for row in odcloud_rows:
-            title = row.get("대회명")
-            host = row.get("주최")
-            location = row.get("대회장소")
-            date_str = row.get("대회일시")
-
-            if not all([title, host, location, date_str]):
-                continue
-
-            try:
-                date = datetime.strptime(date_str.split("~")[0].strip(), "%Y-%m-%d")
-            except:
-                date = None
-
-            event = SportsEvent(
-                title=title,
-                host=host,
-                location=location,
-                region=location,
-                date=date,
-                apply_url=None,
-                description=None
-            )
-            db.session.add(event)
-            saved_events.append({
-                "title": title,
-                "host": host,
-                "location": location,
-                "region": location,
-                "date": date.strftime('%Y-%m-%d') if date else None,
-                "apply_url": None,
-                "source": "odcloud"
+            # 1. 공공데이터
+            odcloud_response = requests.get(URL, params={
+                "page": 1,
+                "perPage": 50,
+                "serviceKey": SECRET_KEY
             })
+            odcloud_rows = odcloud_response.json().get("data", [])
+            for row in odcloud_rows:
+                title = row.get("대회명")
+                host = row.get("주최")
+                location = row.get("대회장소")
+                date_str = row.get("대회일시")
 
-        # 3. Firebase 요청
-        firebase_response = requests.get(FIREBASE_URL)
-        firebase_response.raise_for_status()
-        firebase_docs = firebase_response.json().get("documents", [])
+                if not all([title, host, location, date_str]):
+                    continue
+                try:
+                    date = datetime.strptime(date_str.split("~")[0].strip(), "%Y-%m-%d")
+                except:
+                    date = None
 
-        # 4. Firebase 데이터 파싱 및 저장
-        for doc in firebase_docs:
-            fields = doc.get("fields", {})
+                event = SportsEvent(
+                    title=title,
+                    host=host,
+                    location=location,
+                    region=location,
+                    date=date,
+                    apply_url=None,
+                    description=None
+                )
+                db.session.add(event)
 
-            title = fields.get("event_name", {}).get("stringValue")
-            host = fields.get("host", {}).get("stringValue")
-            location = fields.get("location", {}).get("stringValue")
-            region = fields.get("region", {}).get("stringValue")
-            date_str = fields.get("event_datetime", {}).get("stringValue")
-            apply_url = fields.get("website", {}).get("stringValue")
+            # 2. Firebase
+            firebase_response = requests.get(FIREBASE_URL)
+            firebase_docs = firebase_response.json().get("documents", [])
+            for doc in firebase_docs:
+                fields = doc.get("fields", {})
 
-            try:
-                date = datetime.strptime(date_str.split(" ")[0], "%Y-%m-%d") if date_str else None
-            except:
-                date = None
+                title = fields.get("event_name", {}).get("stringValue")
+                host = fields.get("host", {}).get("stringValue")
+                location = fields.get("location", {}).get("stringValue")
+                region = fields.get("region", {}).get("stringValue")
+                date_str = fields.get("event_datetime", {}).get("stringValue")
+                apply_url = fields.get("website", {}).get("stringValue")
 
-            if not all([title, host, location]):
-                continue
+                try:
+                    date = datetime.strptime(date_str.split(" ")[0], "%Y-%m-%d") if date_str else None
+                except:
+                    date = None
 
-            event = SportsEvent(
-                title=title,
-                host=host,
-                location=location,
-                region=region or location,
-                date=date,
-                apply_url=apply_url,
-                description=None
-            )
-            db.session.add(event)
-            saved_events.append({
-                "title": title,
-                "host": host,
-                "location": location,
-                "region": region or location,
-                "date": date.strftime('%Y-%m-%d') if date else None,
-                "apply_url": apply_url,
-                "source": "firebase"
-            })
+                if not all([title, host, location]):
+                    continue
 
-        db.session.commit()
+                event = SportsEvent(
+                    title=title,
+                    host=host,
+                    location=location,
+                    region=region or location,
+                    date=date,
+                    apply_url=apply_url,
+                    description=None
+                )
+                db.session.add(event)
+
+            db.session.commit()
+
+        # 페이지네이션 쿼리
+        pagination = SportsEvent.query.order_by(SportsEvent.date.asc()).paginate(page=page, per_page=per_page, error_out=False)
+        events = pagination.items
+
+        event_list = [{
+            "event_id": e.event_id,
+            "title": e.title,
+            "host": e.host,
+            "location": e.location,
+            "region": e.region,
+            "date": e.date.strftime('%Y-%m-%d') if e.date else None,
+            "apply_url": e.apply_url
+        } for e in events]
 
         return jsonify({
-            "message": f"{len(saved_events)}개 행사 저장 완료 (공공데이터 + Firebase)",
-            "data": saved_events
+            "page": page,
+            "per_page": per_page,
+            "total": pagination.total,
+            "pages": pagination.pages,
+            "data": event_list
         }), 200
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
 
 ######################################
 # 유저 관련 엔드포인트
