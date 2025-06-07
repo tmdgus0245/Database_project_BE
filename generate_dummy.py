@@ -170,7 +170,7 @@ def main():
         session.commit()
         print("Posts inserted")
 
-        #Review 더미데이터 생성
+        #Crew 더미데이터 생성
         for crew in crews:
             # 크루장 추가
             crew_leader_member = CrewMember(
@@ -193,6 +193,40 @@ def main():
 
         session.commit()
         print("CrewMembers inserted")
+
+        #PostLike 더미데이터 생성
+        posts = session.query(Post).all()
+        for post in posts:
+            # 랜덤하게 0~10개 좋아요 생성
+            like_users = random.sample(users, random.randint(0, 10))
+            for user in like_users:
+                # 중복 좋아요 방지
+                if not session.query(PostLike).filter_by(post_id=post.post_id, user_id=user.user_id).first():
+                    like = PostLike(
+                        post_id=post.post_id,
+                        user_id=user.user_id
+                    )
+                    session.add(like)
+
+        session.commit()
+        print("PostLikes inserted")
+
+        # Review 더미데이터 생성
+        for _ in range(10): 
+            user = random.choice(users)
+            crew = random.choice(crews)
+
+            review = Review(
+                user_id=user.user_id,
+                crew_id=crew.crew_id,
+                rating=random.randint(1, 5),
+                comment=fake.sentence()
+            )
+            session.add(review)
+
+        session.commit()
+        print("Reviews inserted")
+
     
         # 커밋
         session.commit()

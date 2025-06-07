@@ -2,7 +2,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from app.trigger import register_triggers  # 트리거 등록 함수
-from app.views import create_views  # 뷰 생성 함수 가져오기
 from flasgger import Swagger
 
 db = SQLAlchemy()  # Flask-SQLAlchemy 초기화
@@ -12,7 +11,7 @@ def create_app():
     app.config.from_object("config.Config")
 
     swagger = Swagger(app)
-    
+
     db.init_app(app)  # 앱과 db 객체를 연결
 
     # CORS 설정
@@ -30,9 +29,6 @@ def create_app():
         # 트리거 등록
         register_triggers(db)
         print("Trigger registered!")
-
-        # # 뷰 생성
-        # create_views(db)
 
         # 블루프린트 등록
         app.register_blueprint(bp)
