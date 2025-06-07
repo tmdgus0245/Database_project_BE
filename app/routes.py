@@ -279,6 +279,40 @@ def post_crew_notice(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#크루 공지사항 삭제
+@bp.route('/api/crews/<int:crew_id>/notices/<int:notice_id>', methods=['DELETE'])
+def delete_crew_notice(crew_id, notice_id):
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"error": "user_id는 필수입니다."}), 400
+
+    try:
+        # 크루 존재 여부 확인
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "해당 크루가 존재하지 않습니다."}), 404
+
+        # 권한 확인
+        if crew.created_by != user_id:
+            return jsonify({"error": "크루장만 공지사항을 삭제할 수 있습니다."}), 403
+
+        # 공지사항 조회 및 삭제
+        notice = CrewNotice.query.filter_by(notice_id=notice_id, crew_id=crew_id).first()
+        if not notice:
+            return jsonify({"error": "해당 공지사항이 존재하지 않습니다."}), 404
+
+        db.session.delete(notice)
+        db.session.commit()
+
+        return jsonify({"message": f"공지사항 {notice_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 #크루 생성
 @bp.route('/api/crews_make', methods=['POST'])
 def create_crew():
