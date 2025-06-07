@@ -460,17 +460,13 @@ def get_courses():
     try:
         # PostTypeEnum.코스추천인 글들만 가져오기
         course_posts = Post.query.filter_by(type=PostTypeEnum.코스추천).all()
-                
-        for post in course_posts:
-            user = User.query.get(post.user_id)
-            nickname = user.nickname if user else "Unknown"
 
         result = []
         for post in course_posts:
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "author_nickname": nickname,
+                "author_nickname": post.user.nickname if post.user else "Unknown",
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "like_count": post.like_count
             })
@@ -541,12 +537,13 @@ def get_brag_posts():
         # PostTypeEnum.코스추천인 글들만 가져오기
         course_posts = Post.query.filter_by(type=PostTypeEnum.인증글).all()
 
+
         result = []
         for post in course_posts:
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "author_id": post.user_id,
+                "author_id": post.user.nickname if post.user else "Unknown",
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "like_count": post.like_count
             })
