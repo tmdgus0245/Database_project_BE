@@ -948,7 +948,7 @@ def update_user(user_id):
 @bp.route('/api/users/<int:user_id>/events_run_log/<int:event_log_id>', methods=['DELETE'])
 def delete_user_event_run_log(user_id, event_log_id):
     try:
-        log = SportsEventLog.query.filter_by(event_log_id=log_id, user_id=user_id).first()
+        log = SportsEventLog.query.filter_by(event_log_id=event_log_id, user_id=user_id).first()
         if not log:
             return jsonify({"error": "해당 러닝 기록이 존재하지 않습니다."}), 404
 
