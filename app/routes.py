@@ -1,8 +1,13 @@
 from flask import Blueprint, jsonify, request
 from . import db
 from .models import *
+import requests
+from datetime import datetime
 
 bp = Blueprint('routes', __name__)
+
+SECRET_KEY = "0uBbt1XG1OmknhgQnJDfxV9ocGXVtEIafDg0BGqpMYYBQRDpzqdT0S+WnQJqCJNaV4Xt1BSCMQJaXl6GTZFRAA=="
+URL = "https://api.odcloud.kr/api/15138980/v1/uddi:eedc77c5-a56b-4e77-9c1d-9396fa9cc1d3"
 
 ######################################
 # 크루 관련 엔드포인트
@@ -106,7 +111,7 @@ def get_crew_run_log(crew_id):
                 "title": log.title,
                 "date": log.date.strftime('%Y-%m-%d'),
                 "distance_km": log.distance_km,
-                "duration_min": log.duartion_min,
+                "duration_min": log.duration_min,
                 "avg_pace": log.avg_pace,
                 "photo_url": log.photo_url,
                 "notes": log.notes,
@@ -147,7 +152,11 @@ def post_crew_run_log(crew_id):
         avg_pace = data.get('avg_pace')
         photo_url = data.get('photo_url')
         notes = data.get('notes')
-        date = data.get('date')
+        date_str = data.get('date')
+        if date_str:
+            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        else:
+            date = datetime.now().date()
 
         # 필수 값 검증
         if not title or not distance_km or not duration_min or not avg_pace:
@@ -159,7 +168,7 @@ def post_crew_run_log(crew_id):
             title=title,
             date=date,  # 오늘 날짜로 등록
             distance_km=distance_km,
-            duartion_min=duration_min,
+            duration_min=duration_min,
             avg_pace=avg_pace,
             photo_url=photo_url,
             notes=notes,
@@ -420,7 +429,32 @@ def get_crew_reviews(crew_id):
 # 게시글 관련 엔드포인트
 ######################################
 
-#러닝 코스 추천 게시글 조회
+#게시글 하나 상세 조회
+@bp.route('/api/posts/<int:post_id>', methods=['GET'])
+def get_post_detail(post_id):
+    try:
+        post = Post.query.fileer_by(post_id=post_id).first()
+        if not post:
+            return jsonify({"error:" "Post not found"}), 404
+
+        result = []
+        for post_detail in post:
+            result.append({
+                "post_id": post_detail.post_id,
+                "title": post_detail.title,
+                "content": post_detail.content,
+                "image_url": post_detail.image_url,
+                "created_at": post_detail.created_at,
+                "like_count": post_detail.like_count
+            })
+
+        return jsonify(result), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#러닝 코스 추천 게시글 목록 조회
 @bp.route('/api/posts/course', methods=['GET'])
 def get_courses():
     try:
@@ -432,8 +466,6 @@ def get_courses():
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "content": post.content,
-                "image_url": post.image_url,
                 "author_id": post.user_id,
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
             })
@@ -442,7 +474,6 @@ def get_courses():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 #러닝 코스 추천 게시글 게시
 @bp.route('/api/posts/course', methods=['POST'])
@@ -495,7 +526,7 @@ def delete_course(post_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-#자랑 게시글 조회
+#자랑 게시글 목록 조회
 @bp.route('/api/posts/brag', methods=['GET'])
 def get_brag_posts():
     try:
@@ -507,8 +538,6 @@ def get_brag_posts():
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "content": post.content,
-                "image_url": post.image_url,
                 "author_id": post.user_id,
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
             })
@@ -632,45 +661,243 @@ def get_post_like(post_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-
 ######################################
 # 체육 행사 관련 엔드포인트
 ######################################
 
+#체옥 행사 목록 조회
 @bp.route('/api/events', methods=['GET'])
 def get_events():
-    return jsonify({"message": "체육 행사 리스트"}), 200
+    try:
+        # 외부 API 호출
+        url = "https://api.odcloud.kr/api/15138980/v1/uddi:eedc77c5-a56b-4e77-9c1d-9396fa9cc1d3"
+        params = {
+            "page": 1,
+            "perPage": 50,
+            "serviceKey": SECRET_KEY
+        }
 
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        rows = response.json().get("data", [])
+
+        # 기존 데이터 삭제 (옵션)
+        SportsEvent.query.delete()
+        db.session.commit()
+
+        saved_events = []
+
+        # 새 데이터 삽입
+        for row in rows:
+            title = row.get("대회명")
+            host = row.get("주최")
+            location = row.get("대회장소")
+            date_str = row.get("대회일시")
+
+            if not all([title, host, location, date_str]):
+                continue  # 필수 값 없으면 스킵
+
+            try:
+                # 날짜 파싱 (2025-08-10 ~ 2025-08-10)
+                date = datetime.strptime(date_str.split("~")[0].strip(), "%Y-%m-%d")
+            except:
+                date = None
+
+            new_event = SportsEvent(
+                title=title,
+                host=host,
+                location=location,
+                region=location,  # location을 그대로 region에 복사
+                date=date,
+                apply_url=None,
+                description=None
+            )
+            db.session.add(new_event)
+
+            saved_events.append({
+                "title": title,
+                "host": host,
+                "location": location,
+                "region": location,
+                "date": date.strftime('%Y-%m-%d') if date else None
+                })
+
+        db.session.commit()
+
+        return jsonify({"message": f"{len(rows)}개 행사 저장 완료", "data": saved_events}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+#체육 행사 상세 조회
 @bp.route('/api/events/<int:event_id>', methods=['GET'])
 def get_event_detail(event_id):
     return jsonify({"message": f"체육 행사 {event_id} 상세 정보"}), 200
-
-@bp.route('/api/events/<int:event_id>/join', methods=['POST'])
-def join_event(event_id):
-    data = request.get_json()
-    return jsonify({"message": f"체육 행사 {event_id} 참가 신청"}), 201
-
-@bp.route('/api/events/<int:event_id>/participants', methods=['GET'])
-def get_event_participants(event_id):
-    return jsonify({"message": f"체육 행사 {event_id} 참가자 목록"}), 200
 
 ######################################
 # 유저 관련 엔드포인트
 ######################################
 
-#개인 러닝 기록 조회
-@bp.route('/api/users/<int:user_id>/runs', methods=['GET'])
-def get_user_runs(user_id):
-    return jsonify({"message": f"유저 {user_id} 러닝 기록 조회"}), 200
+#유저 정보 조회
+@bp.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-#개인 러닝 기록 추가
-@bp.route('/api/users/<int:user_id>/runs', methods=['POST'])
+        # 유저가 작성한 게시글
+        user_posts = Post.query.filter_by(user_id=user_id).order_by(Post.created_at.desc()).all()
+        post_list = [
+            {
+                "post_id": post.post_id,
+                "title": post.title,
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for post in user_posts
+        ]
+
+        # 유저가 좋아요 누른 게시글
+        liked_posts = (
+            db.session.query(Post)
+            .join(PostLike, Post.post_id == PostLike.post_id)
+            .filter(PostLike.user_id == user_id)
+            .order_by(Post.created_at.desc())
+            .all()
+        )
+        liked_list = [
+            {
+                "post_id": post.post_id,
+                "title": post.title,
+                "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for post in liked_posts
+        ]
+
+        return jsonify({
+            "user_id": user.user_id,
+            "nickname": user.nickname,
+            "region": user.region,
+            "posts": post_list,
+            "liked_posts": liked_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#유저 정보 수정
+@bp.route('/api/users/<int:user_id>', methods=['PATCH'])
+def update_user(user_id):
+    data = request.get_json()
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        nickname = data.get('nickname')
+        region = data.get('region')
+
+        # 수정할 게 하나도 없으면 early return
+        if not nickname and not region:
+            return jsonify({"message": "수정할 필드가 없습니다."}), 400
+
+        # 필드별 수정
+        if nickname:
+            user.nickname = nickname
+        if region:
+            user.region = region
+
+        db.session.commit()
+        return jsonify({"message": f"User {user_id} 정보 수정 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# #유저 행사 러닝 기록 조회
+# @bp.route('/api/users/<int:user_id>/events_run_log', methods=['GET'])
+# def get_user_event_run_log(user_id):
+
+# #유저 행사 러닝 기록 등록
+# @bp.route('/api/users/<int:user_id>/events_run_log', methods=['POST'])
+# def post_user_event_run_log(user_id):
+
+#유저 러닝 기록 조회
+@bp.route('/api/users/<int:user_id>/user_run_log', methods=['GET'])
+def get_user_runs(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        logs = UserRunLog.query.filter_by(user_id=user_id).order_by(UserRunLog.date.desc()).all()
+        
+        result = [
+            {
+                "log_id": log.user_log_id,
+                "date": log.date.strftime('%Y-%m-%d'),
+                "distance_km": log.distance_km,
+                "duration_min": log.duration_min,
+                "pace": log.pace
+            }
+            for log in logs
+        ]
+
+        return jsonify(result), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#유저 러닝 기록 추가
+@bp.route('/api/users/<int:user_id>/user_run_log', methods=['POST'])
 def post_user_run(user_id):
     data = request.get_json()
-    return jsonify({"message": f"유저 {user_id} 러닝 기록 추가"}), 201
+    
+    try:
+        # 필수 항목 확인
+        date = data.get('date')
+        distance_km = data.get('distance_km')
+        duration_min = data.get('duration_min')
+        pace = data.get('pace')
 
-#개인 러닝 기록 삭제
-@bp.route('/api/users/<int:user_id>/runs/<int:run_id>', methods=['DELETE'])
-def delete_user_run(user_id, run_id):
-    return jsonify({"message": f"유저 {user_id} 러닝 기록 {run_id} 삭제"}), 200
+        if not all([date, distance_km, duration_min, pace]):
+            return jsonify({"error": "All fields are required"}), 400
+
+        new_log = UserRunLog(
+            user_id=user_id,
+            date=date,
+            distance_km=distance_km,
+            duration_min=duration_min,
+            pace=pace
+        )
+
+        db.session.add(new_log)
+        db.session.commit()
+
+        return jsonify({"message": f"유저 {user_id} 러닝 기록 추가 완료", "log_id": new_log.user_log_id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+#유저 러닝 기록 삭제
+@bp.route('/api/users/<int:user_id>/user_run_log/<int:user_log_id>', methods=['DELETE'])
+def delete_user_run(user_id, run_id):   
+    try:
+        log = UserRunLog.query.filter_by(user_id=user_id, user_log_id=user_log_id).first()
+        if not log:
+            return jsonify({"error": "User run log not found"}), 404
+
+        db.session.delete(log)
+        db.session.commit()
+
+        return jsonify({"message": f"유저 {user_id} 러닝 기록 {user_log_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+

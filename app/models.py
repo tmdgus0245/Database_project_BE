@@ -76,7 +76,7 @@ class CrewRunLog(db.Model):
     date = db.Column(db.Date)
     title = db.Column(db.String(100))
     distance_km = db.Column(db.Float)
-    duartion_min = db.Column(db.Integer)
+    duration_min = db.Column(db.Integer)
     avg_pace = db.Column(db.Float)
     photo_url = db.Column(db.Text)
     notes = db.Column(db.Text)
@@ -103,8 +103,8 @@ class SportsEvent(db.Model):
     host = db.Column(db.String(100))
     location = db.Column(db.String(100))
     date = db.Column(db.Date)
-    apply_url = db.Column(db.Text)
-    description = db.Column(db.Text)
+    apply_url = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
     region = db.Column(db.String(50))
 
 # 체육 행사 참여 기록

@@ -132,7 +132,7 @@ def main():
                     date=fake.date_this_year(),
                     title=fake.word(),
                     distance_km=round(random.uniform(5, 20), 2),
-                    duartion_min=random.randint(30, 150),
+                    duration_min=random.randint(30, 150),
                     avg_pace=round(random.uniform(5, 7), 2),
                     photo_url=fake.image_url(),
                     notes=fake.sentence(),
