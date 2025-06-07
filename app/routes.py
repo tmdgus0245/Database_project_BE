@@ -906,6 +906,7 @@ def get_user_event_run_log(user_id):
         log_list = []
         for log in logs:
             log_list.append({
+                "event_log_id": log.event_log_id,
                 "event_title": log.event.title,
                 "event_date": log.event.date.strftime('%Y-%m-%d') if log.event.date else None,
                 "distance_km": log.distance_km,
