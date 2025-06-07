@@ -433,7 +433,7 @@ def get_crew_reviews(crew_id):
 @bp.route('/api/posts/<int:post_id>', methods=['GET'])
 def get_post_detail(post_id):
     try:
-        post = Post.query.fileer_by(post_id=post_id).first()
+        post = Post.query.filter_by(post_id=post_id).first()
         if not post:
             return jsonify({"error:" "Post not found"}), 404
 
@@ -460,13 +460,17 @@ def get_courses():
     try:
         # PostTypeEnum.코스추천인 글들만 가져오기
         course_posts = Post.query.filter_by(type=PostTypeEnum.코스추천).all()
+                
+        for post in course_posts:
+            user = User.query.get(post.user_id)
+            nickname = user.nickname if user else "Unknown"
 
         result = []
         for post in course_posts:
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "author_id": post.user_id,
+                "author_nickname": nickname,
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "like_count": post.like_count
             })
