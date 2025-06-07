@@ -104,6 +104,7 @@ def main():
             users.append(user)
             session.add(user)
         session.commit()
+        users = session.query(User).all()
         print("User inserted")
 
         #crew 더미데이터 생성
@@ -122,6 +123,7 @@ def main():
             crews.append(crew)
             session.add(crew)
         session.commit()
+        crews = session.query(Crew).all()
         print("Crews inserted")
 
         #CrewRunLog 더미데이터 생성
@@ -211,10 +213,18 @@ def main():
         session.commit()
         print("PostLikes inserted")
 
-        # Review 더미데이터 생성
-        for _ in range(10): 
+        # Review 더미데이터 생성 (user_id + crew_id 조합 중복 방지)
+        created_pairs = set()
+
+        for _ in range(200):  # 넉넉히 시도해서 중복 아닌 조합 뽑기
             user = random.choice(users)
             crew = random.choice(crews)
+            pair = (user.user_id, crew.crew_id)
+
+            if pair in created_pairs:
+                continue  # 이미 작성한 조합이면 스킵
+
+            created_pairs.add(pair)
 
             review = Review(
                 user_id=user.user_id,
@@ -227,7 +237,6 @@ def main():
         session.commit()
         print("Reviews inserted")
 
-    
         # 커밋
         session.commit()
         print("Dummy data inserted successfully")
