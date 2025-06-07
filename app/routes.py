@@ -656,7 +656,7 @@ def get_brag_posts():
             result.append({
                 "post_id": post.post_id,
                 "title": post.title,
-                "author_id": post.user.nickname if post.user else "Unknown",
+                "author_nickname": post.user.nickname if post.user else "Unknown",
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 "like_count": post.like_count
             })
