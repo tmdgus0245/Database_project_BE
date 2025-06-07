@@ -186,6 +186,24 @@ def post_crew_run_log(crew_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+# 크루 런닝 기록 삭제
+@bp.route('/api/crews/<int:crew_id>/crew_run_log/<int:crew_log_id>', methods=['DELETE'])
+def delete_crew_run_log(crew_id, crew_log_id):
+    try:
+        run_log = CrewRunLog.query.filter_by(crew_id=crew_id, crew_log_id=crew_log_id).first()
+
+        if not run_log:
+            return jsonify({"error": "해당 크루 런닝 기록이 존재하지 않습니다."}), 404
+
+        db.session.delete(run_log)
+        db.session.commit()
+        return jsonify({"message": f"크루 런닝 기록 {crew_log_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 
 #크루 공지사항 조회
 @bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['GET'])
@@ -347,6 +365,38 @@ def leave_crew(crew_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+#크루 삭제
+@bp.route('/api/crews/<int:crew_id>', methods=['DELETE'])
+def delete_crew(crew_id):
+    data = request.get_json()
+    user_id = data.get('user_id')  # 요청한 유저 ID
+
+    try:
+        crew = Crew.query.get(crew_id)
+        if not crew:
+            return jsonify({"error": "해당 크루가 존재하지 않습니다."}), 404
+
+        if crew.created_by != user_id:
+            return jsonify({"error": "크루장만 삭제할 수 있습니다."}), 403
+
+        # 연관된 CrewMember 삭제
+        CrewMember.query.filter_by(crew_id=crew_id).delete()
+
+        # 연관된 CrewRunLog 삭제
+        CrewRunLog.query.filter_by(crew_id=crew_id).delete()
+        
+        # 관련 멤버, 기록 등 연쇄 삭제 필요시 여기서 처리
+        db.session.delete(crew)
+        db.session.commit()
+
+        return jsonify({"message": f"크루 {crew_id} 삭제 완료"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 
 #크루 리뷰 등록
 @bp.route('/api/crews/<int:crew_id>/reviews', methods=['POST'])
