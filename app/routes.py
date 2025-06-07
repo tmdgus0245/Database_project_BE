@@ -819,7 +819,7 @@ def get_user(user_id):
             {
                 "post_id": post.post_id,
                 "title": post.title,
-                "like_count": like_count,
+                "like_count": post.like_count,
                 "created_at": post.created_at.strftime('%Y-%m-%d %H:%M:%S')
             }
             for post in liked_posts
