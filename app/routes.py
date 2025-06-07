@@ -1036,7 +1036,7 @@ def post_user_run(user_id):
 
 #유저 러닝 기록 삭제
 @bp.route('/api/users/<int:user_id>/user_run_log/<int:user_log_id>', methods=['DELETE'])
-def delete_user_run(user_id, run_id):   
+def delete_user_run(user_id, user_log_id):   
     try:
         log = UserRunLog.query.filter_by(user_id=user_id, user_log_id=user_log_id).first()
         if not log:
