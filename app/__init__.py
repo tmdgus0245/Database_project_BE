@@ -32,5 +32,6 @@ def create_app():
 
         # 블루프린트 등록
         app.register_blueprint(bp)
+        print("Blueprintt registered!")
 
     return app
