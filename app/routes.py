@@ -775,6 +775,23 @@ def get_events():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
+#행사 정보 전체 반환
+@bp.route('/api/events/all', methods=['GET'])
+def get_all_events():
+    try:
+        events = SportsEvent.query.order_by(SportsEvent.date.asc()).all()
+        
+        event_list = [{
+            "event_id": e.event_id,
+            "title": e.title,
+        } for e in events]
+
+        return jsonify({"total": len(event_list), "data": event_list}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 ######################################
 # 유저 관련 엔드포인트
