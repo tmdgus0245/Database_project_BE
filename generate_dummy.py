@@ -69,7 +69,7 @@ def main():
     # 2. 크루 관련 로그 삭제
     session.query(CrewRunLog).delete()
     session.query(CrewMember).delete()
-    session.query(CrewNotice).delete()  # 추가: 크루 공지 삭제
+    session.query(CrewNotice).delete()  
     session.query(Crew).delete()
 
     # 3. 사용자 관련 로그, 포스트, 좋아요 삭제
@@ -174,7 +174,6 @@ def main():
 
         #Crew 더미데이터 생성
         for crew in crews:
-            # 크루장 추가
             crew_leader_member = CrewMember(
                 crew_id=crew.crew_id,
                 user_id=crew.created_by,
@@ -182,7 +181,6 @@ def main():
             )
             session.add(crew_leader_member)
 
-            # 나머지 멤버 랜덤 추가 (크루장 제외하고)
             possible_members = [u for u in users if u.user_id != crew.created_by]
             members_in_crew = random.sample(possible_members, random.randint(5, 10))
             for user in members_in_crew:
@@ -199,10 +197,8 @@ def main():
         #PostLike 더미데이터 생성
         posts = session.query(Post).all()
         for post in posts:
-            # 랜덤하게 0~10개 좋아요 생성
             like_users = random.sample(users, random.randint(0, 10))
             for user in like_users:
-                # 중복 좋아요 방지
                 if not session.query(PostLike).filter_by(post_id=post.post_id, user_id=user.user_id).first():
                     like = PostLike(
                         post_id=post.post_id,
@@ -213,16 +209,16 @@ def main():
         session.commit()
         print("PostLikes inserted")
 
-        # Review 더미데이터 생성 (user_id + crew_id 조합 중복 방지)
+        #Review 더미데이터 생성
         created_pairs = set()
 
-        for _ in range(200):  # 넉넉히 시도해서 중복 아닌 조합 뽑기
+        for _ in range(200):  
             user = random.choice(users)
             crew = random.choice(crews)
             pair = (user.user_id, crew.crew_id)
 
             if pair in created_pairs:
-                continue  # 이미 작성한 조합이면 스킵
+                continue  
 
             created_pairs.add(pair)
 

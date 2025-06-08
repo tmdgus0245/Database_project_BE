@@ -18,10 +18,8 @@ FIREBASE_URL = "https://firestore.googleapis.com/v1/projects/marathon365-4aecd/d
 @bp.route('/api/crews_search', methods=['GET'])
 def get_crews():
     try:
-        # 모든 크루 가져오기
         crews = Crew.query.all()
         
-        # 결과를 JSON 형식으로 구성
         result = [
             {
                 "crew_leader": crew.created_by,
@@ -42,7 +40,6 @@ def get_crews():
 @bp.route('/api/crews/<int:crew_id>', methods=['GET'])
 def get_crew_detail(crew_id):
     try:
-        # 크루 가져오기
         crew = Crew.query.get(crew_id)
         if not crew:
             return jsonify({"error": "Crew not found"}), 404
@@ -50,7 +47,6 @@ def get_crew_detail(crew_id):
         leader = User.query.get(crew.created_by)
         leader_nickname = leader.nickname if leader else "Unknown"
 
-        # 리뷰들 가져오기
         reviews = Review.query.filter_by(crew_id=crew_id).all()
         review_list = [
             {
@@ -82,7 +78,6 @@ def get_crew_detail(crew_id):
 @bp.route('/api/crews/<int:crew_id>/crew_member', methods=['GET'])
 def get_crew_member(crew_id):
     try:
-        # 해당 크루의 멤버들 조회
         crew_members = CrewMember.query.filter_by(crew_id=crew_id).all()
         
         result = [
@@ -104,7 +99,6 @@ def get_crew_member(crew_id):
 @bp.route('/api/crews/<int:crew_id>/crew_run_log', methods=['GET'])
 def get_crew_run_log(crew_id):
     try:
-        # 해당 크루의 런닝 기록들 가져오기
         run_logs = CrewRunLog.query.filter_by(crew_id=crew_id).all()
 
         result = [
@@ -132,22 +126,19 @@ def get_crew_run_log(crew_id):
 @bp.route('/api/crews/<int:crew_id>/crew_run_log', methods=['POST'])
 def post_crew_run_log(crew_id):
     data = request.get_json()
-    user_id = data.get('user_id')  # 요청한 사용자 ID
+    user_id = data.get('user_id')  
 
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
 
     try:
-        # 해당 크루 정보 가져오기
         crew = Crew.query.get(crew_id)
         if not crew:
             return jsonify({"error": "Crew not found"}), 404
 
-        # 권한 체크: 요청한 user_id가 이 크루의 created_by인지 확인
         if crew.created_by != user_id:
             return jsonify({"error": "Permission denied. Only crew leader can register run logs."}), 403
 
-        # 필요한 필드들 가져오기
         title = data.get('title')
         distance_km = data.get('distance_km')
         duration_min = data.get('duration_min')
@@ -160,11 +151,9 @@ def post_crew_run_log(crew_id):
         else:
             date = datetime.now().date()
 
-        # 필수 값 검증
         if not title or not distance_km or not duration_min or not avg_pace:
             return jsonify({"error": "Missing required fields"}), 400
 
-        # 새로운 런닝 기록 생성
         new_log = CrewRunLog(
             crew_id=crew_id,
             title=title,
@@ -221,7 +210,6 @@ def delete_crew_run_log(crew_id, crew_log_id):
 @bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['GET'])
 def get_crew_notice(crew_id):
     try:
-        # 해당 크루의 공지사항들 가져오기
         notices = CrewNotice.query.filter_by(crew_id=crew_id).order_by(CrewNotice.created_at.desc()).all()
 
         result = [
@@ -244,25 +232,21 @@ def get_crew_notice(crew_id):
 @bp.route('/api/crews/<int:crew_id>/crew_notice', methods=['POST'])
 def post_crew_notice(crew_id):
     data = request.get_json()
-    user_id = data.get('user_id')  # 작성자 ID
+    user_id = data.get('user_id')  
     title = data.get('title')
     content = data.get('content')
 
-    # 필수 값 검증
     if not user_id or not title or not content:
         return jsonify({"error": "user_id, title, content are required"}), 400
 
     try:
-        # 해당 크루 가져오기
         crew = Crew.query.get(crew_id)
         if not crew:
             return jsonify({"error": "Crew not found"}), 404
 
-        # 권한 체크: 작성자가 크루장인지 확인
         if crew.created_by != user_id:
             return jsonify({"error": "Permission denied. Only the crew leader can post notices."}), 403
 
-        # 공지사항 생성
         new_notice = CrewNotice(
             crew_id=crew_id,
             title=title,
@@ -289,16 +273,13 @@ def delete_crew_notice(crew_id, notice_id):
         return jsonify({"error": "user_id는 필수입니다."}), 400
 
     try:
-        # 크루 존재 여부 확인
         crew = Crew.query.get(crew_id)
         if not crew:
             return jsonify({"error": "해당 크루가 존재하지 않습니다."}), 404
 
-        # 권한 확인
         if crew.created_by != user_id:
             return jsonify({"error": "크루장만 공지사항을 삭제할 수 있습니다."}), 403
 
-        # 공지사항 조회 및 삭제
         notice = CrewNotice.query.filter_by(notice_id=notice_id, crew_id=crew_id).first()
         if not notice:
             return jsonify({"error": "해당 공지사항이 존재하지 않습니다."}), 404
@@ -323,7 +304,6 @@ def create_crew():
     region = data.get('region')
     created_by = data.get('created_by')
 
-    # 필수값 체크
     if not name or not created_by:
         return jsonify({"error": "name and created_by are required"}), 400
 
@@ -364,17 +344,14 @@ def join_crew(crew_id):
         return jsonify({"error": "user_id is required"}), 400
 
     try:
-        # 크루 존재 여부 확인
         crew = Crew.query.get(crew_id)
         if not crew:
             return jsonify({"error": "Crew not found"}), 404
 
-        # 이미 가입되어 있는지 확인
         existing_member = CrewMember.query.filter_by(crew_id=crew_id, user_id=user_id).first()
         if existing_member:
             return jsonify({"error": "User already joined this crew"}), 400
 
-        # 가입 처리
         new_member = CrewMember(
             crew_id=crew_id,
             user_id=user_id,
@@ -416,7 +393,7 @@ def leave_crew(crew_id):
 @bp.route('/api/crews/<int:crew_id>', methods=['DELETE'])
 def delete_crew(crew_id):
     data = request.get_json()
-    user_id = data.get('user_id')  # 요청한 유저 ID
+    user_id = data.get('user_id')  
 
     try:
         crew = Crew.query.get(crew_id)
@@ -426,12 +403,10 @@ def delete_crew(crew_id):
         if crew.created_by != user_id:
             return jsonify({"error": "크루장만 삭제할 수 있습니다."}), 403
 
-        # 연관된 데이터 삭제
         CrewNotice.query.filter_by(crew_id=crew_id).delete()
         CrewMember.query.filter_by(crew_id=crew_id).delete()
         CrewRunLog.query.filter_by(crew_id=crew_id).delete()
 
-        # 관련 멤버, 기록 등 연쇄 삭제 필요시 여기서 처리
         db.session.delete(crew)
         db.session.commit()
 
@@ -484,7 +459,6 @@ def delete_crew_review(review_id):
         if not review:
             return jsonify({"error": "리뷰를 찾을 수 없습니다."}), 404
 
-        # 작성자 본인인지 확인
         if review.user_id != user_id:
             return jsonify({"error": "리뷰 작성자만 삭제할 수 있습니다."}), 403
 
@@ -501,14 +475,13 @@ def delete_crew_review(review_id):
 @bp.route('/api/crews/<int:crew_id>/reviews', methods=['GET'])
 def get_crew_reviews(crew_id):
     try:
-        # 해당 크루의 모든 리뷰 가져오기
         reviews = Review.query.filter_by(crew_id=crew_id).all()
 
         result = [
             {
                 "review_id": review.review_id,
                 "user_id": review.user_id,
-                "nickname": review.user.nickname,  # User 모델에 nickname 관계가 있다고 가정
+                "nickname": review.user.nickname,  
                 "rating": review.rating,
                 "comment": review.comment,
                 "created_at": review.created_at.strftime('%Y-%m-%d %H:%M:%S')
@@ -533,7 +506,6 @@ def get_post_detail(post_id):
         if not post:
             return jsonify({"error": "Post not found"}), 404
 
-        # 쿼리 파라미터로 유저 ID 받기
         user_id = request.args.get('user_id', type=int)
 
         liked = False
@@ -561,7 +533,6 @@ def get_post_detail(post_id):
 @bp.route('/api/posts/course', methods=['GET'])
 def get_courses():
     try:
-        # PostTypeEnum.코스추천인 글들만 가져오기
         course_posts = Post.query.filter_by(type=PostTypeEnum.코스추천).all()
 
         result = []
@@ -589,7 +560,6 @@ def post_course():
     content = data.get('content')
     image_url = data.get('image_url')
 
-    # 필수값 체크
     if not user_id or not title or not content:
         return jsonify({"error": "user_id, title, content는 필수입니다."}), 400
 
@@ -628,7 +598,6 @@ def delete_course(post_id):
         if not post:
             return jsonify({"error": "게시글을 찾을 수 없습니다."}), 404
 
-        # 작성자 본인인지 확인
         if post.user_id != user_id:
             return jsonify({"error": "게시글 작성자만 삭제할 수 있습니다."}), 403
 
@@ -647,7 +616,6 @@ def delete_course(post_id):
 @bp.route('/api/posts/brag', methods=['GET'])
 def get_brag_posts():
     try:
-        # PostTypeEnum.코스추천인 글들만 가져오기
         course_posts = Post.query.filter_by(type=PostTypeEnum.인증글).all()
 
 
@@ -676,7 +644,6 @@ def post_brag():
     content = data.get('content')
     image_url = data.get('image_url')
 
-    # 필수값 체크
     if not user_id or not title or not content:
         return jsonify({"error": "user_id, title, content는 필수입니다."}), 400
 
@@ -773,15 +740,12 @@ def get_post_like(post_id):
 @bp.route('/api/events', methods=['GET'])
 def get_events():
     try:
-        # 페이지네이션 쿼리 파라미터
         page = request.args.get('page', default=1, type=int)
         per_page = request.args.get('per_page', default=10, type=int)
 
-        # 초기 데이터 없을 시 수집 (최초 1회만 실행되게 개선 여지 있음)
         if SportsEvent.query.count() == 0:
             saved_events = []
 
-            # 1. 공공데이터
             odcloud_response = requests.get(URL, params={
                 "page": 1,
                 "perPage": 50,
@@ -812,7 +776,6 @@ def get_events():
                 )
                 db.session.add(event)
 
-            # 2. Firebase
             firebase_response = requests.get(FIREBASE_URL)
             firebase_docs = firebase_response.json().get("documents", [])
             for doc in firebase_docs:
@@ -846,7 +809,6 @@ def get_events():
 
             db.session.commit()
 
-        # 페이지네이션 쿼리
         pagination = SportsEvent.query.order_by(SportsEvent.date.asc()).paginate(page=page, per_page=per_page, error_out=False)
         events = pagination.items
 
@@ -974,11 +936,9 @@ def update_user(user_id):
         nickname = data.get('nickname')
         region = data.get('region')
 
-        # 수정할 게 하나도 없으면 early return
         if not nickname and not region:
             return jsonify({"message": "수정할 필드가 없습니다."}), 400
 
-        # 필드별 수정
         if nickname:
             user.nickname = nickname
         if region:

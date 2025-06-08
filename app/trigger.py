@@ -1,6 +1,7 @@
 from flask import current_app
 from sqlalchemy import text
 
+#좋아요 자동 증감 트리거
 def register_triggers(db):
     try:
         trigger_sql = """
