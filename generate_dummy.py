@@ -2,7 +2,7 @@ import random
 from faker import Faker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models import *
+from app.models import *
 from datetime import datetime, timedelta
 from sqlalchemy import text
 
@@ -45,7 +45,7 @@ seoul_dongs = {
     '강동구': ['강일동', '상일1동', '상일2동', '명일1동', '명일2동', '고덕1동', '고덕2동', '암사1동', '암사2동', '암사3동']
 }
 
-def generate_dummy_data():
+def main():
     session = Session()
 
     if session.query(User).first():
@@ -182,3 +182,5 @@ def generate_dummy_data():
     finally:
         session.close()
 
+if __name__ == "__main__":
+    main()

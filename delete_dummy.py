@@ -53,4 +53,4 @@ def delete_dummy_data():
         session.close()
 
 if __name__ == "__main__":
-    delete_dummy()
+    delete_dummy_data()
