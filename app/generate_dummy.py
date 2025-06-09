@@ -2,7 +2,7 @@ import random
 from faker import Faker
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import *
+from .models import *
 from datetime import datetime, timedelta
 from sqlalchemy import text
 
@@ -16,18 +16,6 @@ Session = sessionmaker(bind=engine)
 
 # Faker 인스턴스 생성
 fake = Faker('ko_KR')
-
-sequences = [
-    '"User_user_id_seq"',
-    '"Crew_crew_id_seq"',
-    '"Post_post_id_seq"',
-    '"Review_review_id_seq"',
-    '"UserRunLog_user_log_id_seq"',
-    '"CrewRunLog_crew_log_id_seq"',
-    '"PostLike_post_like_id_seq"',
-    '"SportsEvent_event_id_seq"',
-    '"SportsEventLog_event_log_id_seq"'
-]
 
 seoul_dongs = {
     '종로구': ['청운동', '신교동', '궁정동', '효자동', '창성동', '통의동', '통인동', '누상동', '누하동', '옥인동'],
@@ -57,76 +45,48 @@ seoul_dongs = {
     '강동구': ['강일동', '상일1동', '상일2동', '명일1동', '명일2동', '고덕1동', '고덕2동', '암사1동', '암사2동', '암사3동']
 }
 
-def main():
-    # SQLAlchemy 세션 생성
+def generate_dummy_data():
     session = Session()
-    
-    print("Deleting existing data...")
 
-    # 1. 리뷰 먼저 삭제 (Crew 참조)
-    session.query(Review).delete()
+    if session.query(User).first():
+        print("Dummy data already exists.")
+        session.close()
+        return
 
-    # 2. 크루 관련 로그 삭제
-    session.query(CrewRunLog).delete()
-    session.query(CrewMember).delete()
-    session.query(CrewNotice).delete()  
-    session.query(Crew).delete()
-
-    # 3. 사용자 관련 로그, 포스트, 좋아요 삭제
-    session.query(PostLike).delete()
-    session.query(Post).delete()
-    session.query(UserRunLog).delete()
-
-    # 4. 사용자 삭제
-    session.query(User).delete()
-    session.commit()
-    print("Old data deleted.")
-
-
-    # 시퀀스 리셋
-    for seq in sequences:
-        session.execute(text(f'ALTER SEQUENCE {seq} RESTART WITH 1;'))
-    session.commit()
-    print("User ID sequence reset.")
+    print("Generating dummy data...")
 
     try:
-
-        #user 더미데이터 생성
+        # User
         users = []
-        for i in range(1, 51):
-            gu = random.choice(list(seoul_dongs.keys()))    
+        for _ in range(50):
+            gu = random.choice(list(seoul_dongs.keys()))
             dong = random.choice(seoul_dongs[gu])
-            region = f"{gu} {dong}"
             user = User(
                 nickname=fake.name(),
-                region=region,
+                region=f"{gu} {dong}"
             )
             users.append(user)
             session.add(user)
         session.commit()
         users = session.query(User).all()
-        print("User inserted")
 
-        #crew 더미데이터 생성
+        # Crew
         crews = []
         for _ in range(10):
             gu = random.choice(list(seoul_dongs.keys()))
             dong = random.choice(seoul_dongs[gu])
-            region = f"{gu} {dong}"
-
             crew = Crew(
                 name=fake.word(),
                 description=fake.text(),
-                region=region,
+                region=f"{gu} {dong}",
                 created_by=random.choice(users).user_id
             )
             crews.append(crew)
             session.add(crew)
         session.commit()
         crews = session.query(Crew).all()
-        print("Crews inserted")
 
-        #CrewRunLog 더미데이터 생성
+        # CrewRunLog
         for crew in crews:
             for _ in range(random.randint(1, 3)):
                 run_log = CrewRunLog(
@@ -142,9 +102,8 @@ def main():
                 )
                 session.add(run_log)
         session.commit()
-        print("CrewRunLogs inserted")    
 
-        #UserRunLog 더미데이터 생성
+        # UserRunLog
         for user in users:
             for _ in range(random.randint(1, 5)):
                 run_log = UserRunLog(
@@ -156,9 +115,8 @@ def main():
                 )
                 session.add(run_log)
         session.commit()
-        print("UserRunLogs inserted")
 
-        #Post 더미데이터 생성
+        # Post
         for user in users:
             for _ in range(random.randint(1, 3)):
                 post = Post(
@@ -170,80 +128,57 @@ def main():
                 )
                 session.add(post)
         session.commit()
-        print("Posts inserted")
 
-        #Crew 더미데이터 생성
+        # CrewMember
         for crew in crews:
-            crew_leader_member = CrewMember(
+            leader = CrewMember(
                 crew_id=crew.crew_id,
                 user_id=crew.created_by,
                 join_date=fake.date_this_year()
             )
-            session.add(crew_leader_member)
+            session.add(leader)
 
-            possible_members = [u for u in users if u.user_id != crew.created_by]
-            members_in_crew = random.sample(possible_members, random.randint(5, 10))
-            for user in members_in_crew:
-                crew_member = CrewMember(
+            members = random.sample([u for u in users if u.user_id != crew.created_by], random.randint(5, 10))
+            for user in members:
+                member = CrewMember(
                     crew_id=crew.crew_id,
                     user_id=user.user_id,
                     join_date=fake.date_this_year()
                 )
-                session.add(crew_member)
-
+                session.add(member)
         session.commit()
-        print("CrewMembers inserted")
 
-        #PostLike 더미데이터 생성
+        # PostLike
         posts = session.query(Post).all()
         for post in posts:
-            like_users = random.sample(users, random.randint(0, 10))
-            for user in like_users:
+            likers = random.sample(users, random.randint(0, 10))
+            for user in likers:
                 if not session.query(PostLike).filter_by(post_id=post.post_id, user_id=user.user_id).first():
-                    like = PostLike(
-                        post_id=post.post_id,
-                        user_id=user.user_id
-                    )
-                    session.add(like)
-
+                    session.add(PostLike(post_id=post.post_id, user_id=user.user_id))
         session.commit()
-        print("PostLikes inserted")
 
-        #Review 더미데이터 생성
+        # Review
         created_pairs = set()
-
-        for _ in range(200):  
+        for _ in range(200):
             user = random.choice(users)
             crew = random.choice(crews)
             pair = (user.user_id, crew.crew_id)
-
             if pair in created_pairs:
-                continue  
-
+                continue
             created_pairs.add(pair)
-
-            review = Review(
+            session.add(Review(
                 user_id=user.user_id,
                 crew_id=crew.crew_id,
                 rating=random.randint(1, 5),
                 comment=fake.sentence()
-            )
-            session.add(review)
-
+            ))
         session.commit()
-        print("Reviews inserted")
 
-        # 커밋
-        session.commit()
-        print("Dummy data inserted successfully")
+        print("Dummy data inserted successfully.")
 
     except Exception as e:
-        # 오류 발생 시 롤백
         session.rollback()
-        print(f"An error occurred: {e}")
+        print(f" Error inserting dummy data: {e}")
     finally:
-        # 세션 닫기
         session.close()
 
-if __name__ == "__main__":
-    main()
